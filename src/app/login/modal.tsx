@@ -1,0 +1,105 @@
+"use client";
+import { forwardRef, useImperativeHandle, useRef } from "react";
+
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import Loading from "../loading";
+import { loginFormInput } from "@/libs/validations/loginForm.schema";
+
+interface modalProps {
+  title: string;
+  formData: loginFormInput | undefined;
+}
+export interface Ref {
+  open: () => void;
+}
+// eslint-disable-next-line react/display-name
+const Modal = forwardRef<Ref, modalProps>(({ title, formData }, ref) => {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useImperativeHandle(ref, () => {
+    return {
+      open: () => {
+        dialogRef.current?.showModal();
+      },
+    };
+  });
+  const { isError, data, isInitialLoading } = useQuery({
+    queryKey: ["searchStudent", formData],
+    queryFn: async () => {
+      const { data } = await axios.get("/api/login", {
+        params: {
+          ...formData,
+        },
+      });
+      return data;
+    },
+    enabled: !!formData,
+    retry: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  const router = useRouter();
+
+  const submitModal = (e: React.MouseEvent) => {
+    e.preventDefault();
+    localStorage.setItem("admissionNo", data.admissionNo);
+    localStorage.setItem("house", data.house);
+    return router.push("/");
+  };
+
+  if (isError) dialogRef?.current?.close();
+  return (
+    <dialog className="m-auto max-w-lg p-2" ref={dialogRef}>
+      {isInitialLoading && <Loading className="border-darkest" />}
+      {data && (
+        <form>
+          <div className="p-4 flex">
+            <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeWidth={1.5}
+                stroke="#dc2626"
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold leading-6 text-gray-900">
+                {title}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {`Do you confirm that you are ${data?.name} of ${data?.std} - ${data?.sec}. admissionNo- ${data?.admissionNo} and of roll no ${data?.rollNo}`}
+              </p>
+            </div>
+          </div>
+          <div className="bg-gray-50 py-3 flex justify-end px-6">
+            <button
+              formMethod="dialog"
+              type="submit"
+              className=" border-gray-900 bg-lightest mr-4 rounded py-1 px-4 text-gray-900 shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submitModal}
+              type="submit"
+              className="bg-red-600 rounded py-1 px-4  shadow-sm hover:bg-red-500 text-lightest"
+            >
+              Confirm
+            </button>
+          </div>
+        </form>
+      )}
+    </dialog>
+  );
+});
+
+export default Modal;
